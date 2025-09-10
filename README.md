@@ -1,17 +1,13 @@
 # Postpartum Depression Prediction
 
 ## Overview
-This project explores the prediction of postpartum depression using survey data.  
-I built a logistic regression model that can carry out:
-- **6-month depression prediction** (`depressed_6m`)
-- **1-year depression prediction** (`depressed_1y`)
+This project explores predicting postpartum depression severity at 6 months (`hamd_6m`) using a linear regression model. 
+The focus is on building a robust predictive model—minimizing leakage, ensuring valid feature use, and achieving generalizable performance.
 
 The workflow covers:
 - Data preprocessing  
 - Baseline model creation  
-- Hyperparameter tuning  
-- Threshold tuning for better control over false positives vs. false negatives  
-- Model saving (with threshold included)
+- Model saving
 
 ## Project Structure
 ```
@@ -20,101 +16,64 @@ sca__challenge/
 │    └── THP_clean.csv # CSV dataset
 │── notebook/ # Jupyter Notebooks
 │    └── PPDepression.ipynb # Main notebook
-├── images/
-│    └── AUC-ROC-SCA.png
-│    └── AUC-ROC-SCA-2.png
-│    └── Confusion-matrix-SCA.png
-│    └── Confusion-matrix-SCA-2.png
-│── logreg_best_with_threshold.pkl # Saved model with threshold
+|── images/
+│    └── Residuals.png
+│    └── Pedicted_vs_actual.png
+│    └── Residuals_vs_predictions.png
+│── logreg_best_with_threshold.pkl # Saved model with threshold (Logistic Regression)
+|── linear_regression_pipeline.joblib # Saved linear regression model
 └──  README.md # Project documentation
 
 ```
 
-## Key Steps
-1. **Baseline Logistic Regression**  
-   - Achieved strong accuracy and ROC-AUC.  
 
-2. **Hyperparameter Tuning**  
-   - Improved generalization and performance.  
-
-3. **Threshold Tuning**  
-   - Optimized trade-off between precision, recall, and F1 score.  
-   - Best threshold stored alongside the trained model.  
 
 ## Methodology
-### Data Preparation
-- Imported dataset (THP_clean.csv).
-- Identified target variables: `depressed_6m` and `depressed_1y`.
-- Dropped irrelevant columns (e.g., IDs, interviewer info). 
-- Handled missing values (in the pipeline) using:
-- Median imputation for numeric columns.
-- Most-frequent imputation for categorical columns.
-
-### Pipeline Setup
-- Built preprocessing pipelines to automatically handle:
-  - Imputation (numeric + categorical).
-  - Encoding of categorical variables.
-  - Scaling of numeric variables.
-- Combined preprocessing with Logistic Regression in a single scikit-learn Pipeline.
-
-
-### Train-Test Split
-- Split dataset into 80% training and 20% testing subsets.
-- Ensured reproducibility with fixed `random_state`.
-  
-### Baseline Modeling
-- Created a baseline Logistic Regression model.
-- Evaluated with *accuracy*, *precision*, *recall*, *F1-score*, and *ROC-AUC*.
-  
-### Hyperparameter Tuning
-- Applied GridSearchCV with 5-fold cross-validation.
-- Tuned parameters such as `C` (regularization strength) and `class_weight`.
-- Selected best model based on ROC-AUC.
-  
-### Threshold Tuning
-- Explored thresholds between 0 and 1.
-- Chose the threshold that maximized F1-score to balance precision and recall.
-- Implemented custom prediction function using the best threshold.
-
-### Model Saving
-- Saved best model and chosen threshold together using `joblib`.
-- Ensured reusability by storing both model and threshold in one `.pkl` file.
-
-### Refactoring for Flexibility
-- Introduced a global `target` variable at the top of the notebook.
-- Allowed seamless switching between `depressed_6m` and `depressed_1y` without duplicating code.
-- `depressed` cannot be used as it leads to overfitting of the model
-
-## Results
-- **Accuracy (baseline):** ~90%  
-- **ROC-AUC:** ~97%  
-- **Best F1 threshold tuning:** Balanced **false positives** and **false negatives**
+1. **Data Cleaning & Target Handling**
+   - Dropped rows with missing `hamd_6m`.
+   - Removed features with >40% missing values.
+   - Detected and dropped leakage: all “6m” columns and features with correlation >0.9.
+2. **Preprocessing Pipeline**
+   - Numeric features: median imputation + scaling.
+   - Categorical features: constant imputation + one-hot encoding.
+3. **Model Training**
+   - Train-test split (80% / 20%), `random_state=42`.
+   - Pipeline: preprocessing + `LinearRegression`.
+4. **Evaluation**
+   - **MAE**: 3.28  
+   - **RMSE**: 4.26  
+   - **R²**: 0.63  
+   - Visual diagnostics: Predicted vs Actual, Residual plots.
 
 ## Visualisations
-![TPR vs FPR AUC-ROC](images/AUC-ROC-SCA.png)
-![Precision vs Recall](images/AUC-ROC-SCA-2.png)
-![Confusion Matrix - Baseline Model](images/Confusion-matrix-SCA.png)
-![Confusion Matrix - Tuned Threshold](images/Confusion-matrix-SCA-2.png)
+![Predicted vs. Actual](images/Predicted_vs_actual.png)
+![Distribution of Residuals](images/Residuals.png)
+![Residuals vs. Predictions](images/Residuals_vs_predictions.png)
 
 ## How to Use
 ### Load the Saved Model
 ```python
 import joblib
-
-saved = joblib.load("logreg_best_with_threshold.pkl")
-model = saved["model"]
-threshold = saved["threshold"]
-
-
-# Predict with custom threshold
-y_proba = model.predict_proba(X)[:, 1]
-y_pred = (y_proba >= threshold).astype(int)
+pipeline = joblib.load("linear_regression_pipeline.joblib")
+predictions = pipeline.predict(X_new)
+# ... evaluate or analyze as needed
 ```
 
+## Results
+| Metric                         | Value      | Meaning                                                                                          |
+|--------------------------------|------------|--------------------------------------------------------------------------------------------------|
+| MAE (Mean Absolute Error)      | 3.28       | On average, predictions are off by about 3.3 points from the actual depression scores.           |
+| RMSE (Root Mean Squared Error) | 4.26       | Errors are larger when squared (penalizes big mistakes more); typical error size is ~4.3 points. |
+| R² (R-squared)                 | 0.63       | The model explains about 63% of the variance in the target (`hamd_6m`) i.e.                      |
+|                                |            |  How much of the spread (people with low, medium and high scores) in the real scores can the     |
+|                                |            | model’s predictions actually capture/explain?                                                    |
+
+
 ### Next Steps
-- Extend modeling to other depression-related columns.
-- Experiment with advanced models (Random Forest, XGBoost, etc.).
-- Deploy as an app for clinical or research use.
+- Visualize feature importance.
+- Explore Ridge / Lasso regression.
+- Cross-validation and hyperparameter tuning.
+- Expand to other outcome variables or deployable app.
 
 ### Motivation
 
